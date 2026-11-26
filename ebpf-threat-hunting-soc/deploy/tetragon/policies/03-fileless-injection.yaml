@@ -1,0 +1,26 @@
+# Fileless execution staging (memfd_create) and ptrace-based process injection.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: soc-fileless-injection
+spec:
+  kprobes:
+  - call: "sys_memfd_create"
+    syscall: true
+    args:
+    - index: 0
+      type: "string"
+    - index: 1
+      type: "uint32"
+  - call: "sys_ptrace"
+    syscall: true
+    args:
+    - index: 0
+      type: "int"
+    - index: 1
+      type: "int"
+    selectors:
+    - matchArgs:
+      - index: 0
+        operator: "Equal"
+        values: ["4", "5", "13", "16", "16902"]   # POKETEXT POKEDATA SETREGS ATTACH SEIZE

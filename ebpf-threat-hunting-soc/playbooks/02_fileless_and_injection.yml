@@ -1,0 +1,15 @@
+id: PB-02
+name: Kill fileless malware / process injection
+description: >
+  Code running from memory (memfd / /proc/self/fd) or injecting into other processes is
+  killed immediately - the whole tree from the attack root down - and every external IP seen
+  in the incident is pushed to the eBPF blocklist.
+enabled: true
+trigger:
+  techniques_any: [T1620, T1055.008]
+  min_severity: critical
+actions:
+  - {type: kill_process_tree, target: attack_root}
+  - {type: block_ip, target: incident_external_ips}
+  - {type: collect_evidence}
+  - {type: notify, channel: soc-critical}

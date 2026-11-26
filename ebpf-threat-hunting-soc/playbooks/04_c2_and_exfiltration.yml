@@ -1,0 +1,10 @@
+id: PB-04
+name: Block C2 / mining / exfiltration destinations
+description: Block external IPs used for C2, mining pools or data exfiltration at the kernel level.
+enabled: true
+trigger:
+  techniques_any: [T1048, T1571, T1496, T1105]
+  min_severity: high
+actions:
+  - {type: block_ip, target: incident_external_ips}
+  - {type: notify, channel: soc-alerts}

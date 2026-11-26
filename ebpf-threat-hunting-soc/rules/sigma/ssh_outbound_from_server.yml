@@ -1,0 +1,17 @@
+title: Outbound SSH from a Non-Admin Server
+id: 6f0a1c2e-3d1b-4b8e-9a51-0c1f7e2a9b10
+status: stable
+description: tcp_connect to port 22 on an internal host from a server that is not the bastion - possible lateral movement.
+author: eBPF SOC
+logsource:
+  product: linux
+  category: network_connection
+detection:
+  ssh:
+    DestinationPort: 22
+    DestinationIsExternal: false
+  bastion:
+    Hostname: ['bastion-01']
+  condition: ssh and not bastion
+level: high
+tags: [attack.lateral_movement, attack.t1021.004]

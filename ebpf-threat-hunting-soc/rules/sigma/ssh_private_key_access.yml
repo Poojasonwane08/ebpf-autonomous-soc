@@ -1,0 +1,16 @@
+title: SSH Private Key Read by Non-SSH Process
+id: 6f0a1c2e-3d1b-4b8e-9a51-0c1f7e2a9b04
+status: stable
+description: A process other than ssh/sshd/ssh-agent read an SSH private key - often the precursor to lateral movement.
+author: eBPF SOC
+logsource:
+  product: linux
+  category: file_access
+detection:
+  key:
+    TargetFilename|re: '/\.ssh/(id_[a-z0-9]+|.*\.pem)$'
+  legit:
+    Image|endswith: ['/ssh', '/sshd', '/ssh-agent', '/ssh-add', '/scp', '/sftp']
+  condition: key and not legit
+level: high
+tags: [attack.credential_access, attack.t1552.004]

@@ -1,0 +1,21 @@
+title: Cron Persistence by Non-Root User or Web Account
+id: 6f0a1c2e-3d1b-4b8e-9a51-0c1f7e2a9b12
+status: stable
+description: crontab modified via the crontab binary or direct writes into cron spool/directories.
+author: eBPF SOC
+logsource:
+  product: linux
+detection:
+  crontab_bin:
+    EventType: process_exec
+    Image|endswith: '/crontab'
+    CommandLine|contains: ['-l', '-e', ' -', '/tmp/']
+  cron_file:
+    EventType: file_access
+    TargetFilename|startswith: ['/etc/cron', '/var/spool/cron']
+  root_admin:
+    User: 0
+    ParentImage|endswith: ['/apt', '/dpkg', '/ansible-playbook']
+  condition: (crontab_bin or cron_file) and not root_admin
+level: medium
+tags: [attack.persistence, attack.t1053.003]

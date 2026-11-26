@@ -1,0 +1,17 @@
+title: Web Server Process Spawns a Shell (Web Shell)
+id: 6f0a1c2e-3d1b-4b8e-9a51-0c1f7e2a9b01
+status: stable
+description: Detects nginx / apache / php-fpm spawning a Unix shell - the classic behaviour of a web shell or RCE exploit.
+author: eBPF SOC
+logsource:
+  product: linux
+  category: process_creation
+detection:
+  parent:
+    ParentImage|endswith: ['/nginx', '/apache2', '/httpd', '/php-fpm', '/php-fpm8.2', '/php-fpm7.4']
+  shell:
+    Image|endswith: ['/sh', '/bash', '/dash', '/zsh']
+  condition: parent and shell
+falsepositives: [Badly written CGI scripts]
+level: high
+tags: [attack.persistence, attack.t1505.003, attack.initial_access, attack.t1190]

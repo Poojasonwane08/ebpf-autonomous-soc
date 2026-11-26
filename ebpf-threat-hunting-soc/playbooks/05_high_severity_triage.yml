@@ -1,0 +1,12 @@
+id: PB-05
+name: High-severity triage (analyst approval)
+description: >
+  Any high-severity detection opens evidence collection automatically and proposes freezing the
+  process tree. Freezing waits for an analyst to click "Approve" on the dashboard.
+enabled: true
+trigger:
+  min_severity: high
+actions:
+  - {type: collect_evidence}
+  - {type: freeze_process_tree, target: attack_root, approval: true}
+  - {type: notify, channel: soc-alerts}

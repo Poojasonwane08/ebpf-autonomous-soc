@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eBPF Threat Hunting SOC</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">◉</span>
+    <div>
+      <h1>eBPF Autonomous Threat Hunting SOC</h1>
+      <div class="sub">kernel telemetry · MITRE ATT&amp;CK · autonomous SOAR</div>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="mode" id="mode">
+      <button data-mode="autonomous">Autonomous response</button>
+      <button data-mode="monitor">Monitor only</button>
+    </div>
+    <select id="scenario"></select>
+    <select id="speed" title="playback speed">
+      <option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option>
+    </select>
+    <button class="primary" id="launch">▶ Launch attack simulation</button>
+    <button id="reset" title="clear state">Reset</button>
+    <a class="btn" href="/api/report" target="_blank">Report</a>
+  </div>
+</header>
+
+<main>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="row two">
+    <div class="card">
+      <h2>Fleet <span class="hint">eBPF sensors</span></h2>
+      <div id="hosts" class="hosts"></div>
+    </div>
+    <div class="card">
+      <h2>Attack graph <span class="hint">lateral movement traced across hosts</span></h2>
+      <svg id="graph" viewBox="0 0 640 290" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>MITRE ATT&amp;CK heatmap <span class="hint">alerts per technique</span></h2>
+    <div id="heatmap" class="heatmap"></div>
+  </section>
+
+  <section class="row two">
+    <div class="card">
+      <h2>Adversary emulation <span class="hint" id="runTitle"></span></h2>
+      <div id="run" class="run"><div class="empty">Launch a scenario to watch the kill chain unfold.</div></div>
+    </div>
+    <div class="card">
+      <h2>SOAR response actions</h2>
+      <div id="actions" class="feed"></div>
+    </div>
+  </section>
+
+  <section class="row two">
+    <div class="card">
+      <h2>Incidents <span class="hint">click to investigate</span></h2>
+      <div id="incidents"></div>
+    </div>
+    <div class="card">
+      <h2>Alerts</h2>
+      <div id="alerts" class="feed"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Live kernel telemetry <span class="hint" id="evtypes"></span></h2>
+    <div id="events" class="events"></div>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-body">
+    <button class="close" id="closeModal">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

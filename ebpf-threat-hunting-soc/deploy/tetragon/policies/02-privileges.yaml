@@ -1,0 +1,17 @@
+# Credential changes in the kernel (privilege escalation) + setuid syscalls.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: soc-privileges
+spec:
+  kprobes:
+  - call: "commit_creds"
+    syscall: false
+    args:
+    - index: 0
+      type: "cred"
+  - call: "sys_setuid"
+    syscall: true
+    args:
+    - index: 0
+      type: "int"

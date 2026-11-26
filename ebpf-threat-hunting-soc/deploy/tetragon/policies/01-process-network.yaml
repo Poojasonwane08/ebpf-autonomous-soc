@@ -1,0 +1,12 @@
+# Outbound TCP connections (lateral movement, C2, exfiltration).
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: soc-network
+spec:
+  kprobes:
+  - call: "tcp_connect"
+    syscall: false
+    args:
+    - index: 0
+      type: "sock"

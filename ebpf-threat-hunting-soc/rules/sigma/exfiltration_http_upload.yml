@@ -1,0 +1,16 @@
+title: Data Exfiltration via HTTP Upload Tools
+id: 6f0a1c2e-3d1b-4b8e-9a51-0c1f7e2a9b13
+status: stable
+description: curl / wget uploading a local file (POST body from file or -T upload) - typical bulk exfiltration.
+author: eBPF SOC
+logsource:
+  product: linux
+  category: process_creation
+detection:
+  tool:
+    Image|endswith: ['/curl', '/wget']
+  upload:
+    CommandLine|contains: ['--data-binary @', '-T ', '--upload-file', '-F file=@', '--post-file']
+  condition: tool and upload
+level: high
+tags: [attack.exfiltration, attack.t1048]

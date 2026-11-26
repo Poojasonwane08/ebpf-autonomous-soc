@@ -1,0 +1,21 @@
+name: insider_privesc
+title: "Insider abuses admin SSH access, exploits pkexec (PwnKit) on the database server"
+description: >
+  A legitimate DB admin account logs in through the bastion (normal admin path - must NOT be
+  flagged as lateral movement), then exploits pkexec to get root, dumps /etc/shadow, injects into
+  postgres, persists with cron and wipes logs. Expected response: freeze the session tree and
+  isolate db-01 at the privilege-escalation step.
+steps:
+  - {id: bsh, name: "Login on bastion", host: bastion-01, action: exec, parent: "@sshd", binary: /bin/bash, args: "-l", uid: 1003, cwd: /home/dbadmin, delay: 1.5}
+  - {id: sshc, name: "ssh dbadmin@db-01", host: bastion-01, action: exec, parent: bsh, binary: /usr/bin/ssh, args: "dbadmin@db-01", uid: 1003, delay: 1}
+  - {id: sess, name: "Admin SSH session (legit path)", host: bastion-01, action: ssh_pivot, proc: sshc, dst_host: db-01, uid: 1003, cwd: /home/dbadmin, delay: 0.5}
+  - {name: "id", host: db-01, action: exec, parent: sess, binary: /usr/bin/id, uid: 1003, exit: true, technique: T1033, delay: 1.5}
+  - {id: pk, name: "pkexec exploit (CVE-2021-4034)", host: db-01, action: exec, parent: sess, binary: /usr/bin/pkexec, args: "", uid: 1003, delay: 1.5}
+  - {name: "Kernel creds -> uid 0", host: db-01, action: privesc, proc: pk, technique: T1068, delay: 0.3}
+  - {id: rootsh, name: "Root shell", host: db-01, action: exec, parent: pk, binary: /bin/sh, args: "-p", uid: 0, delay: 1}
+  - {id: cat, name: "Dump /etc/shadow", host: db-01, action: exec, parent: rootsh, binary: /usr/bin/cat, args: "/etc/shadow", uid: 0, delay: 1}
+  - {name: "Read /etc/shadow", host: db-01, action: file, proc: cat, path: /etc/shadow, technique: T1003.008, delay: 0.2}
+  - {id: gdbx, name: "Injector", host: db-01, action: exec, parent: rootsh, binary: /tmp/.inj, args: "postgres", uid: 0, delay: 1}
+  - {name: "ptrace into postgres", host: db-01, action: ptrace, proc: gdbx, target: "@postgres", technique: T1055.008, delay: 0.5}
+  - {name: "Cron persistence", host: db-01, action: exec, parent: rootsh, binary: /usr/bin/crontab, args: "/tmp/.c", uid: 0, exit: true, technique: T1053.003, delay: 1}
+  - {name: "Clear logs + history", host: db-01, action: exec, parent: rootsh, binary: /bin/sh, args: "-c history -c; shred -u /var/log/auth.log", uid: 0, exit: true, technique: T1070.002, delay: 1}

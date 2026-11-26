@@ -1,0 +1,14 @@
+id: PB-03
+name: Freeze privilege escalation and isolate host
+description: >
+  A non-root process became root outside sudo/su/login. Freeze the session tree (SIGSTOP keeps
+  memory intact for forensics) and network-isolate the host.
+enabled: true
+trigger:
+  techniques_any: [T1068, T1548.001]
+  min_severity: critical
+actions:
+  - {type: freeze_process_tree, target: attack_root}
+  - {type: isolate_host, target: alert_host}
+  - {type: collect_evidence}
+  - {type: notify, channel: soc-critical}

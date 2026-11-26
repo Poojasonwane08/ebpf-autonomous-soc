@@ -1,0 +1,33 @@
+# Simulated Linux server fleet. In live (Tetragon) mode hosts are discovered
+# automatically from the `node_name` field of each eBPF event, and this file is
+# only used to label IP addresses.
+hosts:
+  - name: bastion-01
+    ip: 10.0.0.5
+    role: "SSH jump host (admins)"
+    services: [sshd]
+  - name: web-01
+    ip: 10.0.1.11
+    role: "Public web server (nginx + php-fpm)"
+    services: [nginx, php-fpm]
+  - name: web-02
+    ip: 10.0.1.12
+    role: "Public web server (nginx + php-fpm)"
+    services: [nginx, php-fpm]
+  - name: app-01
+    ip: 10.0.2.21
+    role: "Internal API (python)"
+    services: [gunicorn]
+  - name: db-01
+    ip: 10.0.3.31
+    role: "PostgreSQL database"
+    services: [postgres]
+
+# Network ranges considered internal (anything else is "external").
+internal_networks: ["10.0.0.0/8", "127.0.0.0/8"]
+
+# Hosts that are allowed to SSH into other hosts (admin paths, not lateral movement).
+admin_sources: [bastion-01]
+
+# Management IP that stays reachable when a host is network-isolated.
+soc_management_ip: 10.0.0.2

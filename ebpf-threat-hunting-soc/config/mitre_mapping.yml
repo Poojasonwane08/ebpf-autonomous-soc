@@ -1,0 +1,171 @@
+# ---------------------------------------------------------------------------
+# Kernel telemetry  ->  MITRE ATT&CK translation schema
+# ---------------------------------------------------------------------------
+# Every normalised eBPF event is matched against these rules. A rule matches
+# when ALL of its `match` conditions are true. Supported operators per field:
+#   equals | in | startswith | endswith | contains | regex | gt | lt | ne
+# Fields available: type, binary, args, cmdline, parent_binary, uid, new_uid,
+#   dst_ip, dst_port, dst_external, file_path, function, ptrace_request
+# ---------------------------------------------------------------------------
+
+techniques:
+  T1505.003: {name: "Server Software Component: Web Shell", tactic: "Persistence"}
+  T1059.004: {name: "Command and Scripting Interpreter: Unix Shell", tactic: "Execution"}
+  T1033:     {name: "System Owner/User Discovery", tactic: "Discovery"}
+  T1082:     {name: "System Information Discovery", tactic: "Discovery"}
+  T1087.001: {name: "Account Discovery: Local Account", tactic: "Discovery"}
+  T1018:     {name: "Remote System Discovery", tactic: "Discovery"}
+  T1105:     {name: "Ingress Tool Transfer", tactic: "Command and Control"}
+  T1003.008: {name: "OS Credential Dumping: /etc/passwd and /etc/shadow", tactic: "Credential Access"}
+  T1552.004: {name: "Unsecured Credentials: Private Keys", tactic: "Credential Access"}
+  T1068:     {name: "Exploitation for Privilege Escalation", tactic: "Privilege Escalation"}
+  T1548.001: {name: "Abuse Elevation Control: Setuid and Setgid", tactic: "Privilege Escalation"}
+  T1620:     {name: "Reflective Code Loading (fileless / memfd)", tactic: "Defense Evasion"}
+  T1055.008: {name: "Process Injection: Ptrace System Calls", tactic: "Defense Evasion"}
+  T1070.002: {name: "Indicator Removal: Clear Linux Logs", tactic: "Defense Evasion"}
+  T1021.004: {name: "Remote Services: SSH", tactic: "Lateral Movement"}
+  T1053.003: {name: "Scheduled Task/Job: Cron", tactic: "Persistence"}
+  T1571:     {name: "Non-Standard Port", tactic: "Command and Control"}
+  T1048:     {name: "Exfiltration Over Alternative Protocol", tactic: "Exfiltration"}
+  T1560.001: {name: "Archive Collected Data: Archive via Utility", tactic: "Collection"}
+  T1496:     {name: "Resource Hijacking (cryptomining)", tactic: "Impact"}
+  T1190:     {name: "Exploit Public-Facing Application", tactic: "Initial Access"}
+
+# Order of tactics on the dashboard heatmap (ATT&CK Enterprise kill chain order)
+tactic_order:
+  - "Initial Access"
+  - "Execution"
+  - "Persistence"
+  - "Privilege Escalation"
+  - "Defense Evasion"
+  - "Credential Access"
+  - "Discovery"
+  - "Lateral Movement"
+  - "Collection"
+  - "Command and Control"
+  - "Exfiltration"
+  - "Impact"
+
+rules:
+  # ---- process execution (process_exec / execve) ----
+  - id: shell-from-webserver
+    technique: T1505.003
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(ba|da|z)?sh$"}
+      parent_binary: {regex: "(nginx|apache2|httpd|php-fpm[0-9.]*)$"}
+  - id: unix-shell
+    technique: T1059.004
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(ba|da|z)?sh$"}
+      args: {contains: "-c"}
+  - id: whoami-id
+    technique: T1033
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(whoami|id|w|who)$"}
+  - id: uname-hostname
+    technique: T1082
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(uname|hostname|lsb_release|hostnamectl)$"}
+  - id: read-passwd
+    technique: T1087.001
+    match:
+      type: {equals: process_exec}
+      cmdline: {contains: "/etc/passwd"}
+  - id: network-scan
+    technique: T1018
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(nmap|masscan|arp-scan|fping)$"}
+  - id: download-tool
+    technique: T1105
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(curl|wget)$"}
+      args: {regex: "(http://|https://).*(\\.sh|\\.elf|\\.bin|/x|/payload|\\| *sh| -o /tmp| -O /tmp|/dev/shm)"}
+  - id: archive-data
+    technique: T1560.001
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(tar|zip|7z|gzip)$"}
+      cmdline: {regex: "(/tmp|/dev/shm)/"}
+  - id: cron-persistence
+    technique: T1053.003
+    match:
+      type: {equals: process_exec}
+      binary: {endswith: "/crontab"}
+      uid: {ne: 0}
+  - id: log-tampering
+    technique: T1070.002
+    match:
+      type: {equals: process_exec}
+      cmdline: {regex: "(shred|rm|truncate).*/var/log/|history -c|unset HISTFILE"}
+  - id: miner-binary
+    technique: T1496
+    match:
+      type: {equals: process_exec}
+      cmdline: {regex: "(xmrig|minerd|stratum\\+tcp|cryptonight)"}
+  - id: exec-from-memory
+    technique: T1620
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "^(/proc/self/fd/|/proc/[0-9]+/fd/|/dev/shm/|memfd:)"}
+
+  # ---- kernel kprobes ----
+  - id: memfd-create
+    technique: T1620
+    match:
+      type: {equals: memfd_create}
+  - id: ptrace-inject
+    technique: T1055.008
+    match:
+      type: {equals: ptrace}
+      ptrace_request: {in: [PTRACE_ATTACH, PTRACE_POKETEXT, PTRACE_POKEDATA, PTRACE_SEIZE, PTRACE_SETREGS]}
+  - id: creds-to-root
+    technique: T1068
+    match:
+      type: {equals: privilege_change}
+      new_uid: {equals: 0}
+      uid: {ne: 0}
+  - id: setuid-root
+    technique: T1548.001
+    match:
+      type: {equals: setuid}
+      new_uid: {equals: 0}
+      uid: {ne: 0}
+  - id: shadow-read
+    technique: T1003.008
+    match:
+      type: {equals: file_access}
+      file_path: {in: ["/etc/shadow", "/etc/gshadow"]}
+  - id: ssh-key-read
+    technique: T1552.004
+    match:
+      type: {equals: file_access}
+      file_path: {regex: "/\\.ssh/(id_[a-z0-9]+|.*\\.pem)$"}
+  - id: cron-file-write
+    technique: T1053.003
+    match:
+      type: {equals: file_access}
+      file_path: {regex: "^/(etc/cron|var/spool/cron)"}
+  - id: ssh-connect
+    technique: T1021.004
+    match:
+      type: {equals: network_connect}
+      dst_port: {equals: 22}
+      dst_external: {equals: false}
+  - id: odd-port-external
+    technique: T1571
+    match:
+      type: {equals: network_connect}
+      dst_external: {equals: true}
+      dst_port: {in: [1337, 3333, 4444, 5555, 6666, 7777, 8888, 9999, 14444]}
+  - id: exfil-external
+    technique: T1048
+    match:
+      type: {equals: process_exec}
+      binary: {regex: "/(curl|wget|nc|ncat|scp)$"}
+      args: {regex: "(--data-binary|-T |-F |--upload-file|-X POST.*@)"}

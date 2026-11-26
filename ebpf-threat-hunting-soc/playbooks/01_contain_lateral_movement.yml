@@ -1,0 +1,15 @@
+id: PB-01
+name: Contain lateral movement
+description: >
+  When the CEP engine links an SSH connection to a remote session that is part of an active
+  incident, isolate every host involved and freeze the attacker's process trees on all of them.
+enabled: true
+trigger:
+  techniques_any: [T1021.004]
+  sources: [correlation]
+  min_severity: critical
+actions:
+  - {type: isolate_host, target: incident_hosts}
+  - {type: freeze_process_tree, target: incident_roots}
+  - {type: collect_evidence}
+  - {type: notify, channel: soc-critical}

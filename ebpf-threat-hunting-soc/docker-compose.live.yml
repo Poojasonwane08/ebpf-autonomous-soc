@@ -1,0 +1,68 @@
+# LIVE eBPF mode - real kernel telemetry from Cilium Tetragon.
+# Linux host (Ubuntu 22.04+/kernel 5.10+ with BTF) ONLY. Not for Windows.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.live.yml up --build
+#
+# Replaces the simulated sensor with:
+#   tetragon        eBPF agent, loads the TracingPolicies in deploy/tetragon/policies
+#   sensor          tails Tetragon's JSON export -> Kafka, and executes SOAR actions
+#                   on the real host (dry-run by default: LIVE_RESPONDER_DRY_RUN=true)
+
+services:
+  tetragon:
+    image: quay.io/cilium/tetragon:v1.4.0
+    container_name: soc-tetragon
+    restart: unless-stopped
+    privileged: true
+    pid: host
+    cgroup: host
+    command:
+      - /usr/bin/tetragon
+      - --export-filename=/var/log/tetragon/tetragon.log
+      - --tracing-policy-dir=/etc/tetragon/tetragon.tp.d
+      - --server-address=unix:///var/run/tetragon/tetragon.sock
+    volumes:
+      - /sys/kernel/btf/vmlinux:/var/lib/tetragon/btf:ro
+      - /sys/kernel/debug:/sys/kernel/debug
+      - ./deploy/tetragon/policies:/etc/tetragon/tetragon.tp.d:ro
+      - tetragon-logs:/var/log/tetragon
+      - tetragon-run:/var/run/tetragon
+
+  sensor:
+    build:
+      context: .
+      dockerfile: Dockerfile.live
+    image: ebpf-soc-live:latest
+    user: root
+    privileged: true
+    pid: host
+    network_mode: host
+    environment:
+      SOC_BUS: kafka
+      KAFKA_BOOTSTRAP: localhost:9094
+      SENSOR_MODE: tetragon
+      TETRAGON_EXPORT_FILE: /var/log/tetragon/tetragon.log
+      LIVE_RESPONDER_DRY_RUN: ${LIVE_RESPONDER_DRY_RUN:-true}
+      TETRA_SERVER: unix:///var/run/tetragon/tetragon.sock
+    volumes:
+      - tetragon-logs:/var/log/tetragon:ro
+      - tetragon-run:/var/run/tetragon
+    depends_on:
+      - tetragon
+
+  engine:
+    environment:
+      SENSOR_MODE: tetragon      # learn the anomaly baseline online from real traffic
+
+  kafka:
+    environment:
+      # the host-network sensor reaches Kafka on localhost
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,HOST://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+    ports:
+      - "9094:9094"
+
+volumes:
+  tetragon-logs:
+  tetragon-run:

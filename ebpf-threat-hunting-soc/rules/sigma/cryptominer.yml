@@ -1,0 +1,18 @@
+title: Cryptominer Execution or Mining Pool Connection
+id: 6f0a1c2e-3d1b-4b8e-9a51-0c1f7e2a9b14
+status: stable
+description: Known miner binaries / stratum URLs, or connections to common mining pool ports on external IPs.
+author: eBPF SOC
+logsource:
+  product: linux
+detection:
+  miner_exec:
+    EventType: process_exec
+    CommandLine|contains: ['xmrig', 'minerd', 'stratum+tcp', 'cryptonight', '--donate-level']
+  pool_conn:
+    EventType: network_connect
+    DestinationIsExternal: true
+    DestinationPort: [3333, 4444, 5555, 7777, 14444]
+  condition: 1 of miner_exec or pool_conn
+level: high
+tags: [attack.impact, attack.t1496, attack.command_and_control, attack.t1571]

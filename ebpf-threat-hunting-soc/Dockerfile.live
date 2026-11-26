@@ -1,0 +1,16 @@
+# Image for the LIVE Tetragon sensor/responder: adds the `tetra` CLI and nftables.
+FROM quay.io/cilium/tetragon:v1.4.0 AS tetragon
+
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+RUN apt-get update && apt-get install -y --no-install-recommends nftables && rm -rf /var/lib/apt/lists/*
+COPY --from=tetragon /usr/bin/tetra /usr/local/bin/tetra
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY soc/ soc/
+COPY config/ config/
+COPY rules/ rules/
+COPY playbooks/ playbooks/
+COPY scenarios/ scenarios/
+CMD ["python", "-m", "soc.service", "sensor"]

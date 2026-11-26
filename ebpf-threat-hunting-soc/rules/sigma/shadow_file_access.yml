@@ -1,0 +1,16 @@
+title: Access to /etc/shadow (Credential Dumping)
+id: 6f0a1c2e-3d1b-4b8e-9a51-0c1f7e2a9b03
+status: stable
+description: Kernel file-permission hook observed a process reading the shadow password database.
+author: eBPF SOC
+logsource:
+  product: linux
+  category: file_access
+detection:
+  target:
+    TargetFilename: ['/etc/shadow', '/etc/gshadow']
+  legit:
+    Image|endswith: ['/passwd', '/chage', '/unix_chkpwd', '/sshd', '/login', '/su', '/sudo', '/useradd', '/usermod']
+  condition: target and not legit
+level: high
+tags: [attack.credential_access, attack.t1003.008]
