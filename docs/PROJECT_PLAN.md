@@ -76,11 +76,9 @@ Linux hosts (eBPF: Falco / Tetragon)
 
 | Member | Name | Role |
 |---|---|---|
-| Member 1 | Pooja Sonwane | Sensor and data pipeline lead (eBPF + Kafka) |
-| Member 2 | (name) | MITRE mapping and detection rules |
-| Member 3 | (name) | Correlation engine (Python) |
-| Member 4 | (name) | SOAR and automated response |
-| Member 5 | (name) | Dashboard, attack simulation, reports and repo owner |
+| Member 1 | Pooja Sonwane | Sensor and data pipeline lead (eBPF + Kafka) and reports and repo owner  |
+| Member 2 |Pranil Kumar | MITRE mapping and detection rules and Correlation engine (Python) |
+| Member 3 | (name) |SOAR and automated response and  Dashboard, attack simulation|
 
 ### Member 1: Sensor and Data Pipeline Lead
 **Folders:** `sensor/`, `pipeline/`
