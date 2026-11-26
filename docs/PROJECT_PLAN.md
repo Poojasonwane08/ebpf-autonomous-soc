@@ -1,7 +1,7 @@
 # Project 3: eBPF-Powered Autonomous Threat Hunting SOC
 
 **Organization:** Zaalima Development Pvt. Ltd. (Enterprise-Level Project, Cyber Security)
-**Team size:** 5 members
+**Team size:** 3 members
 **Submission:** first week of November 2026
 **Repository:** `ebpf-autonomous-soc`
 
@@ -78,7 +78,7 @@ Linux hosts (eBPF: Falco / Tetragon)
 |---|---|---|
 | Member 1 | Pooja Sonwane | Sensor and data pipeline lead (eBPF + Kafka) and reports and repo owner  |
 | Member 2 |Pranil Kumar | MITRE mapping and detection rules and Correlation engine (Python) |
-| Member 3 | (name) |SOAR and automated response and  Dashboard, attack simulation|
+| Member 3 | Devendra Kumar Sahu |SOAR and automated response and  Dashboard, attack simulation|
 
 ### Member 1: Sensor and Data Pipeline Lead
 **Folders:** `sensor/`, `pipeline/`
